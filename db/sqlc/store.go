@@ -6,26 +6,31 @@ import (
 	"fmt"
 )
 
-// Store provides all functions to execute db queries and transactions
+type Store interface {
+	Querier
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error)
+}
+
+// SQLStore provides all functions to execute SQL queries and transactions
 // Queries : don't support transactions
 // *sql.DB : database conn pool, used for transactions
-type Store struct {
-	*Queries         // 复用 sqlc 生成的 Queries
+type SQLStore struct {
+	*Queries         // 匿名字段, 复用 sqlc 生成的 Queries
 	db       *sql.DB // 保存数据库连接，用于开启事务
 }
 
 // NewStore creates a new Store
 // Queries 执行普通 SQL 查询(匿名字段,继承)
 // db 用于开启事务 BeginTx()
-func NewStore(db *sql.DB) *Store {
-	return &Store{
+func NewStore(db *sql.DB) Store {
+	return &SQLStore{
 		db:      db,
-		Queries: New(db),
+		Queries: New(db), // 自动匹配到匿名字段 *Queries
 	}
 }
 
 // execTx executes a function within a database transaction
-func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 	// step1 : 用store.db开启事务
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -65,7 +70,7 @@ type TransferTxResult struct {
 
 // TransferTx performs a money transfer from one account to the other
 // It creates a transfer record, add accounts entries, and update accounts' balance within a single transaction
-func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
+func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
 	var result TransferTxResult
 
 	// 匿名回调函数对外部result和arg可访问,即函数闭包

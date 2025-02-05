@@ -11,8 +11,11 @@ import (
 )
 
 func createRandomAccount(t *testing.T) Account {
+	// 创建account时,owner字段必须对应到一个现有的user
+	// account的foreign key(owner)是user的主键(username)
+	user := createRandomUser(t)
 	arg := CreateAccountParams{
-		Owner:    util.RandomOwner(),
+		Owner:    user.Username,
 		Balance:  util.RandomMoney(),
 		Currency: util.RandomCurrency(),
 	}

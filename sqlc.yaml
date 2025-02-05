@@ -9,5 +9,6 @@ sql:
             out: "db/sqlc"                  # 生成的Go代码存放目录
             emit_json_tags: true            # 生成JSON标记,方便序列化
             emit_prepared_queries: false    # 预编译SQL,提高查询性能
-            emit_interface: false           # 生成接口,方便单元测试
+            emit_interface: true            # 生成接口,方便单元测试
             emit_exact_table_names: false   # 结构体名称是否与表名完全匹配
+            emit_empty_slices: true         # 如果查询为空,是否生成空切片(而非null)
