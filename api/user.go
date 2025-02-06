@@ -33,6 +33,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 		return
 	}
 
+	// 在测试端是不可见的,mock测试只负责设置CreateUser的返回值
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -45,7 +46,14 @@ func (server *Server) createUser(ctx *gin.Context) {
 		Email:          req.Email,
 	}
 
+	// 如果stub设置CreateUser(gomock.Any(), gomock.Any())的话
+	// 即使添上这句代码测试也会通过,因为并不检查CreateUser的参数
+	// arg = db.CreateUserParams{}
+
+	// EqCreateUserParams(arg db.CreateUserParams, password string)被调用
+	// 此处传入的arg即(e eqCreateUserParamsMatcher) Matches(x interface{})中的x
 	user, err := server.store.CreateUser(ctx, arg)
+
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
 			// user 有两个唯一键: username 和 email

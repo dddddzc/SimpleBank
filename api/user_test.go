@@ -26,17 +26,30 @@ type eqCreateUserParamsMatcher struct {
 	password string
 }
 
+// type Matcher interface {
+// 	// Matches returns whether x is a match.
+// 	Matches(x interface{}) bool
+
+//		// String describes what the matcher matches.
+//		String() string
+//	}
+//
+// 自主实现 gomock.Matcher 接口的两个方法Matches和String
 func (e eqCreateUserParamsMatcher) Matches(x interface{}) bool {
+	// x interface{}是空接口, 可以存储任何类型的值
+	// x.(db.CreateUserParams)是类型断言,从接口x中提取实际的类型
 	arg, ok := x.(db.CreateUserParams)
 	if !ok {
 		return false
 	}
 
+	// 在测试中password是e的单独字段
 	err := util.CheckPassword(e.password, arg.HashedPassword)
 	if err != nil {
 		return false
 	}
 
+	// e.arg.HashedPassword之前是没有设置值的
 	e.arg.HashedPassword = arg.HashedPassword
 	return reflect.DeepEqual(e.arg, arg)
 }
@@ -72,6 +85,8 @@ func TestCreateUserAPI(t *testing.T) {
 					FullName: user.FullName,
 					Email:    user.Email,
 				}
+
+				// 此处使用自定义的matcher,因为password生成含随机盐
 				store.EXPECT().
 					CreateUser(gomock.Any(), EqCreateUserParams(arg, password)).
 					Times(1).
