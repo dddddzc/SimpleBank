@@ -1,5 +1,5 @@
 postgres:
-	docker run --name postgres12 -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret postgres:12-alpine
+	docker run --name postgres12 --network bank-network -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret postgres:12-alpine
 
 createdb:
 	docker exec -it postgres12 createdb --username=root --owner=root simple_bank
@@ -31,6 +31,9 @@ server:
 mock:
 	mockgen -package mockdb -destination db/mock/store.go simplebank/db/sqlc Store 
 
+image:
+	docker build -t simplebank:latest .
+	
 .PHONY: postgres createdb dropdb sqlc
 .PHONY: migrateup migratedown migrateup1 migratedown1 
-.PHONY: server mock 
+.PHONY: server mock image
