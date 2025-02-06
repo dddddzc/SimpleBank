@@ -3,6 +3,8 @@ package api
 import (
 	"log"
 	db "simplebank/db/sqlc"
+	"simplebank/token"
+	"simplebank/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -11,19 +13,23 @@ import (
 
 // Server serves HTTP requests for our banking service
 type Server struct {
-	store  db.Store
-	router *gin.Engine
+	config     util.Config
+	store      db.Store
+	tokenMaker token.Maker
+	router     *gin.Engine
 }
 
 // NewServer creates a new HTTP server and set up routing
-func NewServer(store db.Store) *Server {
+func NewServer(config util.Config, store db.Store) (*Server, error) {
 	server := &Server{
+		config: config,
 		store:  store,
-		router: gin.Default(),
 	}
+
+	server.setupTokenMaker()
 	server.setupRouter()
 	server.setupValidator()
-	return server
+	return server, nil
 }
 
 // Start runs the HTTP server on a specific address
@@ -32,14 +38,20 @@ func (server *Server) Start(address string) error {
 }
 
 func (server *Server) setupRouter() {
-	// 从请求体(Request Body)中解析 JSON 数据
-	server.router.POST("/accounts", server.createAccount)
-	// 从 URL 路径中提取参数
-	server.router.GET("/accounts/:id", server.getAccount)
-	// 从 URL 查询字符串中提取参数
-	server.router.GET("/accounts", server.listAccount)
-	server.router.POST("/transfers", server.createTransfer)
-	server.router.POST("/users", server.createUser)
+	router := gin.Default()
+
+	// 不需要 Auth 中间件,任何用户都可以注册和登录
+	router.POST("/users", server.createUser)
+	router.POST("/users/login", server.loginUser)
+
+	// 对需要 Auth 中间件的路由进行分组
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+	authRoutes.POST("/accounts", server.createAccount)
+	authRoutes.GET("/accounts/:id", server.getAccount)
+	authRoutes.GET("/accounts", server.listAccount)
+	authRoutes.POST("/transfers", server.createTransfer)
+
+	server.router = router
 }
 
 // 注册验证器
@@ -49,6 +61,15 @@ func (server *Server) setupValidator() {
 			log.Fatalf("failed to register currency validator: %v", err)
 		}
 	}
+}
+
+// 设置Token发放
+func (server *Server) setupTokenMaker() {
+	tokenMaker, err := token.NewPasetoMaker(server.config.TokenSymmetricKey)
+	if err != nil {
+		log.Fatal("cannot create token maker: %w", err)
+	}
+	server.tokenMaker = tokenMaker
 }
 
 func errorResponse(err error) gin.H {
